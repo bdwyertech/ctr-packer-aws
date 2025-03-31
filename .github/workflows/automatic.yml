@@ -1,0 +1,46 @@
+name: Check Base Image and Rebuild
+
+on:
+  schedule:
+    - cron: '0 0 * * *'  # Run daily at midnight
+  workflow_dispatch:  # Allow manual triggers too
+
+jobs:
+  check-and-rebuild:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Get latest base image digest
+        id: base-image
+        run: |
+          LATEST_DIGEST=$(docker manifest inspect hashicorp/packer:full | jq -r '.manifests[] | select(.platform.architecture == "amd64").digest')
+          echo "LATEST_DIGEST=$LATEST_DIGEST" >> $GITHUB_OUTPUT
+          echo "Latest digest: $LATEST_DIGEST"
+
+      - name: Read previous digest
+        id: prev-digest
+        run: |
+          if [ -f .base-image-digest ]; then
+            PREV_DIGEST=$(cat .base-image-digest)
+            echo "PREV_DIGEST=$PREV_DIGEST" >> $GITHUB_OUTPUT
+            echo "Previous digest: $PREV_DIGEST"
+          else
+            echo "No previous digest found"
+            echo "PREV_DIGEST=" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build image if digest changed
+        if: steps.prev-digest.outputs.PREV_DIGEST != steps.base-image.outputs.LATEST_DIGEST
+        run: |
+          # Save the new digest
+          echo "${{ steps.base-image.outputs.LATEST_DIGEST }}" > .base-image-digest
+          
+          # Commit the updated digest file
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+          git add .base-image-digest
+          git commit -m "Update base image digest"
+          git push
+
