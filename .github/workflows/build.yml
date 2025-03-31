@@ -1,6 +1,8 @@
 name: Build Matrix
 
 on:
+  repository_dispatch:
+    types: [base-image-updated]
   workflow_dispatch:
     inputs:
       caller:

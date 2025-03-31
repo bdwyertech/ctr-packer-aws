@@ -44,3 +44,8 @@ jobs:
           git commit -m "Update base image digest"
           git push
 
+      - name: Repository Dispatch
+        if: steps.prev-digest.outputs.PREV_DIGEST != steps.base-image.outputs.LATEST_DIGEST
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          event-type: base-image-updated
