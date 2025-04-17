@@ -22,6 +22,7 @@ jobs:
       contents: read
       packages: write
       id-token: write  # Required for provenance metadata
+      security-events: write # For Scan results
 
     steps:
       - name: Checkout repository
