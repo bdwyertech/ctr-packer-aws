@@ -47,6 +47,7 @@ jobs:
         run: |
           echo "date=$(date +'%Y-%m-%d')" >> "$GITHUB_OUTPUT"
           echo "dockerfile=Dockerfile" >> "$GITHUB_OUTPUT"
+          echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
 
       - name: Extract metadata (tags, labels) for Docker
         id: meta
@@ -85,7 +86,7 @@ jobs:
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@0.28.0
         with:
-          image-ref: ghcr.io/${{ env.IMAGE_NAME }}:${{ steps.params.outputs.date }}--${{ github.sha }}
+          image-ref: ghcr.io/${{ env.IMAGE_NAME }}:${{ steps.params.outputs.date }}--${{ steps.params.outputs.sha_short }}
           format: 'sarif'
           output: 'trivy-results.sarif'
           severity: 'CRITICAL,HIGH'
