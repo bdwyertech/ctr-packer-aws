@@ -36,6 +36,15 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	args := os.Args[1:]
+	switch len(args) {
+	case 0:
+		args = append(args, ".")
+	case 1:
+		// pass
+	default:
+		log.Fatal("too many arguments")
+	}
 	if _, set := os.LookupEnv("PACKER_PLUGIN_PATH"); set {
 		// homeDir, _ := os.UserHomeDir()
 		// srcDir := filepath.Join(homeDir, ".config", "packer", "plugins")
@@ -67,7 +76,7 @@ func main() {
 		CorePackerVersionString: version.FormattedVersion(),
 		Parser:                  hclparse.NewParser(),
 	}
-	cfg, diags := parser.Parse("test.pkr.hcl", nil, nil)
+	cfg, diags := parser.Parse(args[0], nil, nil)
 	if diags.HasErrors() {
 		log.Fatal(diags.Error())
 	}
