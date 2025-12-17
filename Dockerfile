@@ -4,7 +4,7 @@ COPY packer-artifactory-init/ .
 # GOFLAGS=-mod=vendor
 RUN CGO_ENABLED=0 go build -ldflags="-s -w" .
 
-FROM hashicorp/packer:lite
+FROM hashicorp/packer:light
 
 COPY --from=helper /go/src/packer-artifactory-init /usr/local/bin/
 RUN chmod 4755 /usr/local/bin/fix-permissions
