@@ -146,7 +146,7 @@ func main() {
 			log.Fatalf("Error installing plugin %q: %s", pluginRequirement.Identifier, err)
 		}
 		if newInstall != nil {
-			log.Printf("[INFO] Installed plugin %s %s in %q", pluginRequirement.Identifier, newInstall.Version, newInstall.BinaryPath)
+			log.Infof("Installed plugin %s %s in %q", pluginRequirement.Identifier, newInstall.Version, newInstall.BinaryPath)
 		}
 	}
 }
