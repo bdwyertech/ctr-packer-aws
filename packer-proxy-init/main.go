@@ -7,20 +7,27 @@ import (
 	"path/filepath"
 	"runtime"
 
+	log "github.com/sirupsen/logrus"
+
 	"github.com/hashicorp/hcl/v2/hclparse"
 	pluginsdk "github.com/hashicorp/packer-plugin-sdk/plugin"
 	"github.com/hashicorp/packer/hcl2template"
 	"github.com/hashicorp/packer/packer"
 	plugingetter "github.com/hashicorp/packer/packer/plugin-getter"
 	"github.com/hashicorp/packer/version"
-	log "github.com/sirupsen/logrus"
 )
 
-var source string
+var githubSource string
+var releasesSource string
 var force bool
 
 func init() {
-	flag.StringVar(&source, "source", os.Getenv("PKR_INIT_SOURCE"), "GitHub proxy, e.g. https://artifacts.my.org/artifactory/GITHUB")
+	releasesSource = os.Getenv("PKR_INIT_RELEASES_SOURCE")
+	if releasesSource == "" {
+		releasesSource = "https://releases.hashicorp.com/"
+	}
+	flag.StringVar(&githubSource, "github-source", os.Getenv("PKR_INIT_GITHUB_SOURCE"), "GitHub proxy, e.g. https://artifacts.my.org/artifactory/GITHUB")
+	flag.StringVar(&releasesSource, "releases-source", releasesSource, "Hashicorp Releases proxy, e.g. https://artifacts.my.org/artifactory/HASHICORP")
 	flag.BoolVar(&force, "force", false, "Forces reinstallation of plugins, even if already installed.")
 	if _, debug := os.LookupEnv("DEBUG"); debug {
 		log.SetLevel(log.DebugLevel)
@@ -29,14 +36,14 @@ func init() {
 
 func main() {
 	flag.Parse()
-	if source == "" {
-		log.Fatal("source is required")
+	if githubSource == "" {
+		log.Fatal("github-source is required")
 	}
 	pluginDir, err := packer.PluginFolder()
 	if err != nil {
 		log.Fatal(err)
 	}
-	args := os.Args[1:]
+	args := flag.Args()
 	switch len(args) {
 	case 0:
 		args = append(args, ".")
@@ -107,13 +114,28 @@ func main() {
 
 	// the ordering of the getters is important here, place the getter on top which you want to try first
 	getters := []plugingetter.Getter{
-		&ProxyGetter{
-			Name:    "proxy",
-			BaseURL: source,
+		&ReleasesGetter{
+			Name:    "releases",
+			BaseURL: releasesSource,
+		},
+		&GithubProxyGetter{
+			Name:    "github-proxy",
+			BaseURL: githubSource,
 		},
 	}
 
 	for _, pluginRequirement := range reqs {
+
+		installs, err := pluginRequirement.ListInstallations(opts)
+		if err != nil {
+			log.Fatal(err)
+		}
+		if len(installs) > 0 {
+			if !force {
+				continue
+			}
+		}
+
 		newInstall, err := pluginRequirement.InstallLatest(plugingetter.InstallOptions{
 			PluginDirectory:           opts.PluginDirectory,
 			BinaryInstallationOptions: opts.BinaryInstallationOptions,

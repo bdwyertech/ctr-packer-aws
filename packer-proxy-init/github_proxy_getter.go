@@ -12,15 +12,15 @@ import (
 	"github.com/hashicorp/packer/packer/plugin-getter/github"
 )
 
-type ProxyGetter struct {
+type GithubProxyGetter struct {
 	BaseURL string
 	Name    string
 }
 
-// Ensure ProxyGetter implements the Getter interface
-var _ plugingetter.Getter = new(ProxyGetter)
+// Ensure GithubProxyGetter implements the Getter interface
+var _ plugingetter.Getter = new(GithubProxyGetter)
 
-func (g *ProxyGetter) Get(what string, opts plugingetter.GetOptions) (io.ReadCloser, error) {
+func (g *GithubProxyGetter) Get(what string, opts plugingetter.GetOptions) (io.ReadCloser, error) {
 	// Parse the plugin source to get owner/repo
 	ghPlugin, err := github.NewGithubPlugin(opts.PluginRequirement.Identifier)
 	if err != nil {
@@ -100,18 +100,18 @@ func (g *ProxyGetter) Get(what string, opts plugingetter.GetOptions) (io.ReadClo
 	return nil, fmt.Errorf("unknown get request: %s", what)
 }
 
-func (g *ProxyGetter) Init(req *plugingetter.Requirement, entry *plugingetter.ChecksumFileEntry) error {
+func (g *GithubProxyGetter) Init(req *plugingetter.Requirement, entry *plugingetter.ChecksumFileEntry) error {
 	// reuse github's init- it parses filenames well
 	ghGetter := &github.Getter{}
 	return ghGetter.Init(req, entry)
 }
 
-func (g *ProxyGetter) Validate(opt plugingetter.GetOptions, expectedVersion string, installOpts plugingetter.BinaryInstallationOptions, entry *plugingetter.ChecksumFileEntry) error {
+func (g *GithubProxyGetter) Validate(opt plugingetter.GetOptions, expectedVersion string, installOpts plugingetter.BinaryInstallationOptions, entry *plugingetter.ChecksumFileEntry) error {
 	ghGetter := &github.Getter{}
 	return ghGetter.Validate(opt, expectedVersion, installOpts, entry)
 }
 
-func (g *ProxyGetter) ExpectedFileName(pr *plugingetter.Requirement, version string, entry *plugingetter.ChecksumFileEntry, zipFileName string) string {
+func (g *GithubProxyGetter) ExpectedFileName(pr *plugingetter.Requirement, version string, entry *plugingetter.ChecksumFileEntry, zipFileName string) string {
 	ghGetter := &github.Getter{}
 	return ghGetter.ExpectedFileName(pr, version, entry, zipFileName)
 }
