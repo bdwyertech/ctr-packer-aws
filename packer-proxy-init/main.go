@@ -20,7 +20,7 @@ var source string
 var force bool
 
 func init() {
-	flag.StringVar(&source, "source", os.Getenv("PKR_INIT_SOURCE"), "Artifactory GitHub mirror, e.g. https://artifacts.my.org/artifactory/GITHUB")
+	flag.StringVar(&source, "source", os.Getenv("PKR_INIT_SOURCE"), "GitHub proxy, e.g. https://artifacts.my.org/artifactory/GITHUB")
 	flag.BoolVar(&force, "force", false, "Forces reinstallation of plugins, even if already installed.")
 	if _, debug := os.LookupEnv("DEBUG"); debug {
 		log.SetLevel(log.DebugLevel)
@@ -98,8 +98,8 @@ func main() {
 
 	// the ordering of the getters is important here, place the getter on top which you want to try first
 	getters := []plugingetter.Getter{
-		&ArtifactoryGetter{
-			Name:    "artifactory",
+		&ProxyGetter{
+			Name:    "proxy",
 			BaseURL: source,
 		},
 	}

@@ -1,7 +1,7 @@
 version: 2
 updates:
   - package-ecosystem: gomod
-    directory: 'packer-artifactory-init'
+    directory: 'packer-proxy-init'
     schedule:
       interval: weekly
       time: '08:00'

@@ -12,15 +12,15 @@ import (
 	"github.com/hashicorp/packer/packer/plugin-getter/github"
 )
 
-type ArtifactoryGetter struct {
+type ProxyGetter struct {
 	BaseURL string
 	Name    string
 }
 
-// Ensure ArtifactoryGetter implements the Getter interface
-var _ plugingetter.Getter = new(ArtifactoryGetter)
+// Ensure ProxyGetter implements the Getter interface
+var _ plugingetter.Getter = new(ProxyGetter)
 
-func (g *ArtifactoryGetter) Get(what string, opts plugingetter.GetOptions) (io.ReadCloser, error) {
+func (g *ProxyGetter) Get(what string, opts plugingetter.GetOptions) (io.ReadCloser, error) {
 	// Parse the plugin source to get owner/repo
 	ghPlugin, err := github.NewGithubPlugin(opts.PluginRequirement.Identifier)
 	if err != nil {
@@ -35,7 +35,7 @@ func (g *ArtifactoryGetter) Get(what string, opts plugingetter.GetOptions) (io.R
 		// We expect the constraints to check against a specific version
 		constraints := opts.PluginRequirement.VersionConstraints
 		if len(constraints) == 0 {
-			return nil, fmt.Errorf("artifactory getter requires an exact version constraint")
+			return nil, fmt.Errorf("proxy getter requires an exact version constraint")
 		}
 
 		// We will try to find the "exact" version from the constraint string.
@@ -45,7 +45,7 @@ func (g *ArtifactoryGetter) Get(what string, opts plugingetter.GetOptions) (io.R
 		// Simple parsing for now: assume user provided something like "= 1.2.3" or "1.2.3"
 		// If it contains ranges like ">=", it's not exact enough for us to guess without listing.
 		if strings.ContainsAny(constStr, ">,<,~") {
-			return nil, fmt.Errorf("artifactory getter requires an exact version, found: %s", constStr)
+			return nil, fmt.Errorf("proxy getter requires an exact version, found: %s", constStr)
 		}
 
 		exactVersion := strings.TrimSpace(strings.TrimPrefix(constStr, "="))
@@ -100,18 +100,18 @@ func (g *ArtifactoryGetter) Get(what string, opts plugingetter.GetOptions) (io.R
 	return nil, fmt.Errorf("unknown get request: %s", what)
 }
 
-func (g *ArtifactoryGetter) Init(req *plugingetter.Requirement, entry *plugingetter.ChecksumFileEntry) error {
+func (g *ProxyGetter) Init(req *plugingetter.Requirement, entry *plugingetter.ChecksumFileEntry) error {
 	// reuse github's init- it parses filenames well
 	ghGetter := &github.Getter{}
 	return ghGetter.Init(req, entry)
 }
 
-func (g *ArtifactoryGetter) Validate(opt plugingetter.GetOptions, expectedVersion string, installOpts plugingetter.BinaryInstallationOptions, entry *plugingetter.ChecksumFileEntry) error {
+func (g *ProxyGetter) Validate(opt plugingetter.GetOptions, expectedVersion string, installOpts plugingetter.BinaryInstallationOptions, entry *plugingetter.ChecksumFileEntry) error {
 	ghGetter := &github.Getter{}
 	return ghGetter.Validate(opt, expectedVersion, installOpts, entry)
 }
 
-func (g *ArtifactoryGetter) ExpectedFileName(pr *plugingetter.Requirement, version string, entry *plugingetter.ChecksumFileEntry, zipFileName string) string {
+func (g *ProxyGetter) ExpectedFileName(pr *plugingetter.Requirement, version string, entry *plugingetter.ChecksumFileEntry, zipFileName string) string {
 	ghGetter := &github.Getter{}
 	return ghGetter.ExpectedFileName(pr, version, entry, zipFileName)
 }

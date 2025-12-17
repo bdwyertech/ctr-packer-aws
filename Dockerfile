@@ -1,12 +1,12 @@
 FROM golang:1.25-alpine AS helper
 WORKDIR /go/src/
-COPY packer-artifactory-init/ .
+COPY packer-proxy-init/ .
 RUN GOFLAGS=-mod=vendor CGO_ENABLED=0 go build -ldflags="-s -w" .
 
 FROM hashicorp/packer:light
 
-COPY --from=helper /go/src/packer-artifactory-init /usr/local/bin/
-RUN chmod 4755 /usr/local/bin/packer-artifactory-init
+COPY --from=helper /go/src/packer-proxy-init /usr/local/bin/
+RUN chmod 4755 /usr/local/bin/packer-proxy-init
 
 RUN apk add --no-cache aws-cli curl
 

@@ -1,4 +1,4 @@
-module packer-artifactory-init
+module packer-proxy-init
 
 go 1.25.5
 
