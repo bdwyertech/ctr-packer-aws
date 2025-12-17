@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"flag"
 	"os"
+	"path/filepath"
 	"runtime"
 
 	"github.com/hashicorp/hcl/v2/hclparse"
@@ -31,6 +32,36 @@ func main() {
 	if source == "" {
 		log.Fatal("source is required")
 	}
+	pluginDir, err := packer.PluginFolder()
+	if err != nil {
+		log.Fatal(err)
+	}
+	if _, set := os.LookupEnv("PACKER_PLUGIN_PATH"); set {
+		// homeDir, _ := os.UserHomeDir()
+		// srcDir := filepath.Join(homeDir, ".config", "packer", "plugins")
+		srcDir := "/root/.config/packer/plugins"
+
+		if err = filepath.Walk(srcDir, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+			if info.IsDir() {
+				return nil
+			}
+			relPath, _ := filepath.Rel(srcDir, path)
+			dst := filepath.Join(pluginDir, relPath)
+			if err = os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
+				return err
+			}
+			data, err := os.ReadFile(path)
+			if err != nil {
+				return err
+			}
+			return os.WriteFile(dst, data, 0755)
+		}); err != nil {
+			log.Fatal(err)
+		}
+	}
 	parser := &hcl2template.Parser{
 		CorePackerVersion:       version.SemVer,
 		CorePackerVersionString: version.FormattedVersion(),
@@ -46,13 +77,7 @@ func main() {
 	}
 
 	opts := plugingetter.ListInstallationsOptions{
-		PluginDirectory: func() string {
-			pluginDir, err := packer.PluginFolder()
-			if err != nil {
-				log.Fatal(err)
-			}
-			return pluginDir
-		}(),
+		PluginDirectory: pluginDir,
 		BinaryInstallationOptions: plugingetter.BinaryInstallationOptions{
 			OS:              runtime.GOOS,
 			ARCH:            runtime.GOARCH,
