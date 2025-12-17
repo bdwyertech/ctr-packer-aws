@@ -5,10 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"path/filepath"
 	"strings"
+
+	log "github.com/sirupsen/logrus"
 
 	plugingetter "github.com/hashicorp/packer/packer/plugin-getter"
 	gh "github.com/hashicorp/packer/packer/plugin-getter/github"
@@ -67,7 +68,7 @@ func transformReleasesVersionStream(in io.ReadCloser) (io.ReadCloser, error) {
 }
 
 func (g *ReleasesGetter) Get(what string, opts plugingetter.GetOptions) (io.ReadCloser, error) {
-	log.Printf("[TRACE] Getting %s of %s plugin from %s", what, opts.PluginRequirement.Identifier, g.Name)
+	log.Debugf("Getting %s of %s plugin from %s", what, opts.PluginRequirement.Identifier, g.Name)
 	// The gitHub plugin we are using because we are not changing the plugin source string, if we decide to change that,
 	// then we need to write this method for release getter as well, but that will change the packer init and install command as well
 	ghURI, err := gh.NewGithubPlugin(opts.PluginRequirement.Identifier)
@@ -86,7 +87,6 @@ func (g *ReleasesGetter) Get(what string, opts plugingetter.GetOptions) (io.Read
 	case "releases":
 		// https://releases.hashicorp.com/packer-plugin-docker/index.json
 		url := filepath.ToSlash(g.BaseURL + ghURI.PluginType() + "/index.json")
-		// log.Fatal(url)
 		req, err = http.NewRequest("GET", url, nil)
 		transform = transformReleasesVersionStream
 	case "sha256":
@@ -107,20 +107,20 @@ func (g *ReleasesGetter) Get(what string, opts plugingetter.GetOptions) (io.Read
 	}
 
 	if err != nil {
-		log.Printf("[ERROR] http-getter: error creating request for %q: %s", what, err)
+		log.Errorf("http-getter: error creating request for %q: %s", what, err)
 		return nil, err
 	}
 
 	resp, err := g.HttpClient.Do(req)
 	if err != nil || resp.StatusCode >= 400 {
-		log.Printf("[ERROR] Got error while trying getting data from %s, %v", g.BaseURL, err)
+		log.Errorf("Got error while trying getting data from %s, %v", g.BaseURL, err)
 		return nil, plugingetter.HTTPFailure
 	}
 
 	defer func(Body io.ReadCloser) {
 		err = Body.Close()
 		if err != nil {
-			log.Printf("[ERROR] http-getter: error closing response body: %s", err)
+			log.Errorf("http-getter: error closing response body: %s", err)
 		}
 	}(resp.Body)
 
@@ -170,13 +170,13 @@ func (g *ReleasesGetter) Validate(opt plugingetter.GetOptions, expectedVersion s
 	var data plugingetter.ManifestMeta
 	body, err := io.ReadAll(manifest)
 	if err != nil {
-		log.Printf("Failed to unmarshal manifest json: %s", err)
+		log.Errorf("Failed to unmarshal manifest json: %s", err)
 		return err
 	}
 
 	err = json.Unmarshal(body, &data)
 	if err != nil {
-		log.Printf("Failed to unmarshal manifest json: %s", err)
+		log.Errorf("Failed to unmarshal manifest json: %s", err)
 		return err
 	}
 

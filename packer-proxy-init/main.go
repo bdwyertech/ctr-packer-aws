@@ -52,10 +52,11 @@ func main() {
 	default:
 		log.Fatal("too many arguments")
 	}
-	if _, set := os.LookupEnv("PACKER_PLUGIN_PATH"); set {
+	if val, set := os.LookupEnv("PACKER_PLUGIN_PATH"); set {
 		// homeDir, _ := os.UserHomeDir()
 		// srcDir := filepath.Join(homeDir, ".config", "packer", "plugins")
 		srcDir := "/root/.config/packer/plugins"
+		log.Infof("Copying pre-installed plugins into PACKER_PLUGIN_PATH (%s)", val)
 
 		if err = filepath.Walk(srcDir, func(path string, info os.FileInfo, err error) error {
 			if err != nil {
