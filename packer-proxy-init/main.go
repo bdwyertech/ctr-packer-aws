@@ -3,9 +3,11 @@ package main
 import (
 	"crypto/sha256"
 	"flag"
+	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	log "github.com/sirupsen/logrus"
 
@@ -38,6 +40,15 @@ func main() {
 	flag.Parse()
 	if githubSource == "" {
 		log.Fatal("github-source is required")
+	}
+	if _, err := url.Parse(githubSource); err != nil {
+		log.Fatal("error parsing releases source: ", err)
+	}
+	if _, err := url.Parse(releasesSource); err != nil {
+		log.Fatal("error parsing releases source: ", err)
+	}
+	if !strings.HasSuffix(releasesSource, "/") {
+		releasesSource += "/"
 	}
 	pluginDir, err := packer.PluginFolder()
 	if err != nil {
