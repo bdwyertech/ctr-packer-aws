@@ -1,4 +1,4 @@
-// Copyright (c) HashiCorp, Inc.
+// Copyright IBM Corp. 2013, 2025
 // SPDX-License-Identifier: BUSL-1.1
 
 package hcl2template
@@ -14,7 +14,6 @@ import (
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/ext/dynblock"
 	"github.com/hashicorp/hcl/v2/hclparse"
-	packersdk "github.com/hashicorp/packer-plugin-sdk/packer"
 	"github.com/hashicorp/packer/internal/dag"
 	"github.com/hashicorp/packer/packer"
 	"github.com/zclconf/go-cty/cty"
@@ -306,7 +305,7 @@ func filterVarsFromLogs(inputOrLocal Variables) {
 		value := variable.Value()
 		_ = cty.Walk(value, func(_ cty.Path, nested cty.Value) (bool, error) {
 			if nested.IsWhollyKnown() && !nested.IsNull() && nested.Type().Equals(cty.String) {
-				packersdk.LogSecretFilter.Set(nested.AsString())
+				packer.RegisterSecret(nested.AsString())
 			}
 			return true, nil
 		})

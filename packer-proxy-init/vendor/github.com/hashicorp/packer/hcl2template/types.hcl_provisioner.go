@@ -1,4 +1,4 @@
-// Copyright (c) HashiCorp, Inc.
+// Copyright IBM Corp. 2013, 2025
 // SPDX-License-Identifier: BUSL-1.1
 
 package hcl2template
@@ -36,7 +36,9 @@ func (p *HCL2Provisioner) HCL2Prepare(buildVars map[string]interface{}) error {
 		ectx = p.evalContext.NewChild()
 		buildValues := map[string]cty.Value{}
 		if !p.evalContext.Variables[buildAccessor].IsNull() {
-			buildValues = p.evalContext.Variables[buildAccessor].AsValueMap()
+			for k, v := range p.evalContext.Variables[buildAccessor].AsValueMap() {
+				buildValues[k] = v
+			}
 		}
 		for k, v := range buildVars {
 			val, err := ConvertPluginConfigValueToHCLValue(v)
