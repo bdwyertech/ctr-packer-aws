@@ -64,7 +64,7 @@ jobs:
           tags: |
             type=sha,enable=true,priority=100,prefix=${{ steps.params.outputs.date }}--,suffix=,format=short
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@v4
         with:
           image: ghcr.io/bdwyertech/dhub/binfmt:latest
 
