@@ -1,4 +1,4 @@
-// Copyright (c) HashiCorp, Inc.
+// Copyright IBM Corp. 2024, 2026
 // SPDX-License-Identifier: BUSL-1.1
 
 package hcl2template
@@ -582,6 +582,14 @@ func (cfg *PackerConfig) getCoreBuildProvisioner(source SourceUseBlock, pb *Prov
 		}
 	}
 
+	// Wrap last (outside retries) so retries are exhausted before the error
+	// is ignored and the build is allowed to continue.
+	if pb.ContinueOnError {
+		provisioner = &packer.ContinueOnErrorProvisioner{
+			Provisioner: provisioner,
+		}
+	}
+
 	return packer.CoreBuildProvisioner{
 		PType:       pb.PType,
 		PName:       pb.PName,
@@ -827,14 +835,8 @@ func (cfg *PackerConfig) GetBuilds(opts packer.GetBuildsOptions) ([]*packer.Core
 			pcb.Provisioners = provisioners
 			pcb.PostProcessors = pps
 			pcb.Prepared = true
-
-			pcb.SensitiveVars = make([]string, 0, len(cfg.InputVariables))
-
-			for key, variable := range cfg.InputVariables {
-				if variable.Sensitive {
-					pcb.SensitiveVars = append(pcb.SensitiveVars, key)
-				}
-			}
+			pcb.SetGeneratedVars(generatedVars)
+			pcb.SensitiveVars = cfg.sensitiveInputVariableKeys()
 
 			// Prepare just sets the "prepareCalled" flag on CoreBuild, since
 			// we did all the prep here.
@@ -924,6 +926,18 @@ func (p *PackerConfig) printVariables() string {
 		fmt.Fprintf(out, "local.%s: %q\n", v.Name, PrintableCtyValue(val))
 	}
 	return out.String()
+}
+
+func (cfg *PackerConfig) sensitiveInputVariableKeys() []string {
+	sensitiveVars := make([]string, 0, len(cfg.InputVariables))
+
+	for key, variable := range cfg.InputVariables {
+		if variable.Sensitive {
+			sensitiveVars = append(sensitiveVars, key)
+		}
+	}
+
+	return sensitiveVars
 }
 
 func (p *PackerConfig) printBuilds() string {
