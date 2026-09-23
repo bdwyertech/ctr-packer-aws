@@ -1,4 +1,4 @@
-// Copyright (c) HashiCorp, Inc.
+// Copyright IBM Corp. 2024, 2026
 // SPDX-License-Identifier: BUSL-1.1
 
 package hcl2template
@@ -15,6 +15,7 @@ import (
 	pkrfunction "github.com/hashicorp/packer/hcl2template/function"
 	"github.com/hashicorp/packer/packer"
 	"github.com/zclconf/go-cty/cty"
+	"github.com/zclconf/go-cty/cty/convert"
 	"github.com/zclconf/go-cty/cty/function"
 )
 
@@ -582,6 +583,14 @@ func (cfg *PackerConfig) getCoreBuildProvisioner(source SourceUseBlock, pb *Prov
 		}
 	}
 
+	// Wrap last (outside retries) so retries are exhausted before the error
+	// is ignored and the build is allowed to continue.
+	if pb.ContinueOnError {
+		provisioner = &packer.ContinueOnErrorProvisioner{
+			Provisioner: provisioner,
+		}
+	}
+
 	return packer.CoreBuildProvisioner{
 		PType:       pb.PType,
 		PName:       pb.PName,
@@ -827,14 +836,8 @@ func (cfg *PackerConfig) GetBuilds(opts packer.GetBuildsOptions) ([]*packer.Core
 			pcb.Provisioners = provisioners
 			pcb.PostProcessors = pps
 			pcb.Prepared = true
-
-			pcb.SensitiveVars = make([]string, 0, len(cfg.InputVariables))
-
-			for key, variable := range cfg.InputVariables {
-				if variable.Sensitive {
-					pcb.SensitiveVars = append(pcb.SensitiveVars, key)
-				}
-			}
+			pcb.SetGeneratedVars(generatedVars)
+			pcb.SensitiveVars = cfg.sensitiveInputVariableKeys()
 
 			// Prepare just sets the "prepareCalled" flag on CoreBuild, since
 			// we did all the prep here.
@@ -924,6 +927,47 @@ func (p *PackerConfig) printVariables() string {
 		fmt.Fprintf(out, "local.%s: %q\n", v.Name, PrintableCtyValue(val))
 	}
 	return out.String()
+}
+
+// userVariableValues returns the string representation of the input variable
+// values, keyed by variable name, for plugins to consume under the
+// packer_user_variables config key. This mirrors the legacy JSON templates'
+// user variables, making `{{ user "name" }}` work in plugin interpolation.
+// Variables marked sensitive are excluded so their values only reach a plugin
+// where the template references them explicitly. Unset/unknown values and
+// values with no string representation (lists, maps, objects) are skipped,
+// since legacy user variables were always strings.
+func (cfg *PackerConfig) userVariableValues() map[string]string {
+	userVars := make(map[string]string, len(cfg.InputVariables))
+
+	for key, variable := range cfg.InputVariables {
+		if variable.Sensitive {
+			continue
+		}
+		val := variable.Value()
+		if val.IsNull() || !val.IsWhollyKnown() {
+			continue
+		}
+		strVal, err := convert.Convert(val, cty.String)
+		if err != nil || strVal.IsNull() {
+			continue
+		}
+		userVars[key] = strVal.AsString()
+	}
+
+	return userVars
+}
+
+func (cfg *PackerConfig) sensitiveInputVariableKeys() []string {
+	sensitiveVars := make([]string, 0, len(cfg.InputVariables))
+
+	for key, variable := range cfg.InputVariables {
+		if variable.Sensitive {
+			sensitiveVars = append(sensitiveVars, key)
+		}
+	}
+
+	return sensitiveVars
 }
 
 func (p *PackerConfig) printBuilds() string {
