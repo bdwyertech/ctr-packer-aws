@@ -1,4 +1,4 @@
-// Copyright (c) HashiCorp, Inc.
+// Copyright IBM Corp. 2014, 2026
 // SPDX-License-Identifier: MPL-2.0
 
 // Package tryfunc contains some optional functions that can be exposed in
@@ -117,9 +117,9 @@ func try(args []cty.Value) (cty.Value, error) {
 	buf.WriteString("no expression succeeded:\n")
 	for _, diag := range diags {
 		if diag.Subject != nil {
-			buf.WriteString(fmt.Sprintf("- %s (at %s)\n  %s\n", diag.Summary, diag.Subject, diag.Detail))
+			fmt.Fprintf(&buf, "- %s (at %s)\n  %s\n", diag.Summary, diag.Subject, diag.Detail)
 		} else {
-			buf.WriteString(fmt.Sprintf("- %s\n  %s\n", diag.Summary, diag.Detail))
+			fmt.Fprintf(&buf, "- %s\n  %s\n", diag.Summary, diag.Detail)
 		}
 	}
 	buf.WriteString("\nAt least one expression must produce a successful result")
