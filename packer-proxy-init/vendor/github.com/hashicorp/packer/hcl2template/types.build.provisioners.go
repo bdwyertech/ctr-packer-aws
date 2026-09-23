@@ -1,4 +1,4 @@
-// Copyright (c) HashiCorp, Inc.
+// Copyright IBM Corp. 2024, 2026
 // SPDX-License-Identifier: BUSL-1.1
 
 package hcl2template
@@ -63,13 +63,14 @@ func (o *OnlyExcept) Validate() hcl.Diagnostics {
 
 // ProvisionerBlock references a detected but unparsed provisioner
 type ProvisionerBlock struct {
-	PType       string
-	PName       string
-	PauseBefore time.Duration
-	MaxRetries  int
-	Timeout     time.Duration
-	Override    map[string]interface{}
-	OnlyExcept  OnlyExcept
+	PType           string
+	PName           string
+	PauseBefore     time.Duration
+	MaxRetries      int
+	Timeout         time.Duration
+	ContinueOnError bool
+	Override        map[string]interface{}
+	OnlyExcept      OnlyExcept
 	HCL2Ref
 }
 
@@ -79,14 +80,15 @@ func (p *ProvisionerBlock) String() string {
 
 func (p *Parser) decodeProvisioner(block *hcl.Block, ectx *hcl.EvalContext) (*ProvisionerBlock, hcl.Diagnostics) {
 	var b struct {
-		Name        string    `hcl:"name,optional"`
-		PauseBefore string    `hcl:"pause_before,optional"`
-		MaxRetries  int       `hcl:"max_retries,optional"`
-		Timeout     string    `hcl:"timeout,optional"`
-		Only        []string  `hcl:"only,optional"`
-		Except      []string  `hcl:"except,optional"`
-		Override    cty.Value `hcl:"override,optional"`
-		Rest        hcl.Body  `hcl:",remain"`
+		Name            string    `hcl:"name,optional"`
+		PauseBefore     string    `hcl:"pause_before,optional"`
+		MaxRetries      int       `hcl:"max_retries,optional"`
+		Timeout         string    `hcl:"timeout,optional"`
+		ContinueOnError bool      `hcl:"continue_on_error,optional"`
+		Only            []string  `hcl:"only,optional"`
+		Except          []string  `hcl:"except,optional"`
+		Override        cty.Value `hcl:"override,optional"`
+		Rest            hcl.Body  `hcl:",remain"`
 	}
 	diags := gohcl.DecodeBody(block.Body, ectx, &b)
 	if diags.HasErrors() {
@@ -94,11 +96,12 @@ func (p *Parser) decodeProvisioner(block *hcl.Block, ectx *hcl.EvalContext) (*Pr
 	}
 
 	provisioner := &ProvisionerBlock{
-		PType:      block.Labels[0],
-		PName:      b.Name,
-		MaxRetries: b.MaxRetries,
-		OnlyExcept: OnlyExcept{Only: b.Only, Except: b.Except},
-		HCL2Ref:    newHCL2Ref(block, b.Rest),
+		PType:           block.Labels[0],
+		PName:           b.Name,
+		MaxRetries:      b.MaxRetries,
+		ContinueOnError: b.ContinueOnError,
+		OnlyExcept:      OnlyExcept{Only: b.Only, Except: b.Except},
+		HCL2Ref:         newHCL2Ref(block, b.Rest),
 	}
 
 	diags = diags.Extend(provisioner.OnlyExcept.Validate())
@@ -185,16 +188,8 @@ func (cfg *PackerConfig) startProvisioner(source SourceUseBlock, pb *Provisioner
 	builderVars["packer_debug"] = strconv.FormatBool(cfg.debug)
 	builderVars["packer_force"] = strconv.FormatBool(cfg.force)
 	builderVars["packer_on_error"] = cfg.onError
-
-	sensitiveVars := make([]string, 0, len(cfg.InputVariables))
-
-	for key, variable := range cfg.InputVariables {
-		if variable.Sensitive {
-			sensitiveVars = append(sensitiveVars, key)
-		}
-	}
-
-	builderVars["packer_sensitive_variables"] = sensitiveVars
+	builderVars["packer_sensitive_variables"] = cfg.sensitiveInputVariableKeys()
+	builderVars["packer_user_variables"] = cfg.userVariableValues()
 
 	hclProvisioner := &HCL2Provisioner{
 		Provisioner:      provisioner,

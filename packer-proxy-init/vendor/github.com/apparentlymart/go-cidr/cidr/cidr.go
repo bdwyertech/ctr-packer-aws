@@ -28,8 +28,22 @@ import (
 // For example, 10.3.0.0/16, extended by 8 bits, with a network number
 // of 5, becomes 10.3.5.0/24 .
 func Subnet(base *net.IPNet, newBits int, num int) (*net.IPNet, error) {
+	return SubnetBig(base, newBits, big.NewInt(int64(num)))
+}
+
+// SubnetBig takes a parent CIDR range and creates a subnet within it with the
+// given number of additional prefix bits and the given network number. It
+// differs from Subnet in that it takes a *big.Int for the num, instead of an int.
+//
+// For example, 10.3.0.0/16, extended by 8 bits, with a network number of 5,
+// becomes 10.3.5.0/24 .
+func SubnetBig(base *net.IPNet, newBits int, num *big.Int) (*net.IPNet, error) {
 	ip := base.IP
 	mask := base.Mask
+
+	if num.Sign() == -1 {
+		return nil, fmt.Errorf("subnet number must not be negative")
+	}
 
 	parentLen, addrLen := mask.Size()
 	newPrefixLen := parentLen + newBits
@@ -39,24 +53,32 @@ func Subnet(base *net.IPNet, newBits int, num int) (*net.IPNet, error) {
 	}
 
 	maxNetNum := uint64(1<<uint64(newBits)) - 1
-	if uint64(num) > maxNetNum {
+	if num.Uint64() > maxNetNum {
 		return nil, fmt.Errorf("prefix extension of %d does not accommodate a subnet numbered %d", newBits, num)
 	}
 
 	return &net.IPNet{
-		IP:   insertNumIntoIP(ip, big.NewInt(int64(num)), newPrefixLen),
+		IP:   insertNumIntoIP(ip, num, newPrefixLen),
 		Mask: net.CIDRMask(newPrefixLen, addrLen),
 	}, nil
 }
 
-// Host takes a parent CIDR range and turns it into a host IP address with
-// the given host number.
+// Host takes a parent CIDR range and turns it into a host IP address with the
+// given host number.
 //
 // For example, 10.3.0.0/16 with a host number of 2 gives 10.3.0.2.
 func Host(base *net.IPNet, num int) (net.IP, error) {
+	return HostBig(base, big.NewInt(int64(num)))
+}
+
+// HostBig takes a parent CIDR range and turns it into a host IP address with
+// the given host number. It differs from Host in that it takes a *big.Int for
+// the num, instead of an int.
+//
+// For example, 10.3.0.0/16 with a host number of 2 gives 10.3.0.2.
+func HostBig(base *net.IPNet, num *big.Int) (net.IP, error) {
 	ip := base.IP
 	mask := base.Mask
-	bigNum := big.NewInt(int64(num))
 
 	parentLen, addrLen := mask.Size()
 	hostLen := addrLen - parentLen
@@ -65,23 +87,31 @@ func Host(base *net.IPNet, num int) (net.IP, error) {
 	maxHostNum.Lsh(maxHostNum, uint(hostLen))
 	maxHostNum.Sub(maxHostNum, big.NewInt(1))
 
-	numUint64 := big.NewInt(int64(bigNum.Uint64()))
-	if bigNum.Cmp(big.NewInt(0)) == -1 {
-		numUint64.Neg(bigNum)
-		numUint64.Sub(numUint64, big.NewInt(int64(1)))
-		bigNum.Sub(maxHostNum, numUint64)
-	}
+	minHostNum := big.NewInt(0)
+	minHostNum.Set(maxHostNum)
+	minHostNum.Neg(minHostNum)
+	minHostNum.Sub(minHostNum, big.NewInt(1))
 
-	if numUint64.Cmp(maxHostNum) == 1 {
+	if num.Cmp(maxHostNum) == 1 || num.Cmp(minHostNum) == -1 {
 		return nil, fmt.Errorf("prefix of %d does not accommodate a host numbered %d", parentLen, num)
 	}
+
+	// A negative number is counted from the end of the numbering space.
+	if num.Cmp(big.NewInt(0)) == -1 {
+		realNum := big.NewInt(0)
+		realNum.Set(maxHostNum)
+		realNum.Add(realNum, big.NewInt(1))
+		realNum.Add(realNum, num)
+		num = realNum
+	}
+
 	var bitlength int
 	if ip.To4() != nil {
 		bitlength = 32
 	} else {
 		bitlength = 128
 	}
-	return insertNumIntoIP(ip, bigNum, bitlength), nil
+	return insertNumIntoIP(ip, num, bitlength), nil
 }
 
 // AddressRange returns the first and last addresses in the given CIDR range.
@@ -120,9 +150,9 @@ func AddressCount(network *net.IPNet) uint64 {
 	return 1 << (uint64(bits) - uint64(prefixLen))
 }
 
-//VerifyNoOverlap takes a list subnets and supernet (CIDRBlock) and verifies
-//none of the subnets overlap and all subnets are in the supernet
-//it returns an error if any of those conditions are not satisfied
+// VerifyNoOverlap takes a list subnets and supernet (CIDRBlock) and verifies
+// none of the subnets overlap and all subnets are in the supernet
+// it returns an error if any of those conditions are not satisfied
 func VerifyNoOverlap(subnets []*net.IPNet, CIDRBlock *net.IPNet) error {
 	firstLastIP := make([][]net.IP, len(subnets))
 	for i, s := range subnets {
@@ -180,7 +210,7 @@ func NextSubnet(network *net.IPNet, prefixLen int) (*net.IPNet, bool) {
 	return next, false
 }
 
-//Inc increases the IP by one this returns a new []byte for the IP
+// Inc increases the IP by one this returns a new []byte for the IP
 func Inc(IP net.IP) net.IP {
 	IP = checkIPv4(IP)
 	incIP := make([]byte, len(IP))
@@ -194,7 +224,7 @@ func Inc(IP net.IP) net.IP {
 	return incIP
 }
 
-//Dec decreases the IP by one this returns a new []byte for the IP
+// Dec decreases the IP by one this returns a new []byte for the IP
 func Dec(IP net.IP) net.IP {
 	IP = checkIPv4(IP)
 	decIP := make([]byte, len(IP))
